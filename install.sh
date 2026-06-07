@@ -68,33 +68,58 @@ pkg_install() {
 
 bold "==> Installing prerequisites"
 BASE_PKGS="git curl ca-certificates nmap"
-# build tools so better-sqlite3 can compile if no prebuilt binary is available
+# build tools so better-sqlite3 can compile if no prebuilt binary is available;
+# xz is needed to unpack the Node.js tarball.
 case "$PM" in
-  apt) BASE_PKGS="$BASE_PKGS build-essential python3" ;;
-  *)   BASE_PKGS="$BASE_PKGS gcc gcc-c++ make python3" ;;
+  apt) BASE_PKGS="$BASE_PKGS build-essential python3 xz-utils" ;;
+  *)   BASE_PKGS="$BASE_PKGS gcc gcc-c++ make python3 xz" ;;
 esac
-pkg_install $BASE_PKGS
+# Non-fatal: on distros with a broken/stale package index (e.g. a Kali host with
+# an expired archive key) these are usually already installed. We verify the
+# essentials afterwards rather than aborting on an apt hiccup.
+pkg_install $BASE_PKGS || warn "package install reported errors — continuing (likely already installed)"
 
-# ---- Node.js 20 (if missing or too old) -------------------------------------
+command -v git  >/dev/null 2>&1 || die "git is required but not installed"
+command -v curl >/dev/null 2>&1 || die "curl is required but not installed"
+command -v nmap >/dev/null 2>&1 || warn "nmap not found — scans will use the built-in TCP-sweep fallback"
+
+# ---- Node.js 20 (install from nodejs.org tarball if missing/old) ------------
+# Deliberately avoids apt/NodeSource so a broken distro package index can't block
+# the install. Drops a self-contained Node into /usr/local.
+install_node_tarball() {
+  local arch tarball url tmp
+  case "$(uname -m)" in
+    x86_64|amd64) arch=x64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    armv7l) arch=armv7l ;;
+    *) die "unsupported CPU architecture for Node tarball: $(uname -m)" ;;
+  esac
+  info "Fetching latest Node.js 20.x ($arch) from nodejs.org"
+  tarball="$(curl -fsSL https://nodejs.org/dist/latest-v20.x/ \
+    | grep -oE "node-v20[0-9.]+-linux-${arch}\.tar\.xz" | head -1)"
+  [ -n "$tarball" ] || die "could not determine the Node.js tarball name from nodejs.org"
+  url="https://nodejs.org/dist/latest-v20.x/$tarball"
+  tmp="$(mktemp -d)"
+  curl -fsSL "$url" -o "$tmp/node.tar.xz" || die "failed to download $url"
+  run tar -xJf "$tmp/node.tar.xz" -C /usr/local --strip-components=1
+  rm -rf "$tmp"
+  hash -r 2>/dev/null || true
+}
+
 need_node=1
 if command -v node >/dev/null 2>&1; then
-  major="$(node -p 'process.versions.node.split(".")[0]')"
+  major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
   [ "$major" -ge 18 ] && need_node=0
 fi
 if [ "$need_node" -eq 1 ]; then
-  info "Installing Node.js 20.x"
-  if [ "$PM" = "apt" ]; then
-    curl -fsSL https://deb.nodesource.com/setup_20.x | run_E bash -
-    pkg_install nodejs
-  else
-    curl -fsSL https://rpm.nodesource.com/setup_20.x | run_E bash -
-    pkg_install nodejs
-  fi
+  install_node_tarball
+  info "Installed Node.js $(node -v)"
 else
   info "Node.js $(node -v) already present"
 fi
 
-# corepack gives us a reliable package manager; fall back to npm.
+command -v npm >/dev/null 2>&1 || die "npm not found after Node.js install"
+# corepack ships with the tarball; enable it but don't fail if it's unavailable.
 run corepack enable 2>/dev/null || true
 
 # ---- fetch the source -------------------------------------------------------
