@@ -1,0 +1,14 @@
+{
+  "id": "windows-dc",
+  "name": "Windows Domain Controller",
+  "description": "Active Directory Domain Controller (Kerberos, LDAP, SMB, RDP).",
+  "channel": "winrm",
+  "icon": "windows",
+  "match": {
+    "allPorts": [88, 389],
+    "anyPorts": [445, 636, 3389, 53],
+    "osIncludes": ["windows"],
+    "weight": 5
+  },
+  "defaultModuleIds": ["rdp-hardening"]
+}

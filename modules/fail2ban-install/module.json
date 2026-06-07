@@ -1,0 +1,29 @@
+{
+  "id": "fail2ban-install",
+  "name": "Install fail2ban",
+  "description": "Detects the package manager (apt/dnf/yum/pkg), installs fail2ban, writes a basic SSH jail, and enables the service to block brute-force attempts.",
+  "version": "1.0.0",
+  "category": "Hardening",
+  "channel": "ssh",
+  "appliesTo": ["linux-server", "mail-server"],
+  "params": [
+    {
+      "name": "maxRetry",
+      "label": "Max retries before ban",
+      "type": "number",
+      "default": 5
+    },
+    {
+      "name": "banTime",
+      "label": "Ban time (seconds)",
+      "type": "number",
+      "default": 3600
+    },
+    {
+      "name": "useSudo",
+      "label": "Use sudo for privileged steps",
+      "type": "boolean",
+      "default": true
+    }
+  ]
+}

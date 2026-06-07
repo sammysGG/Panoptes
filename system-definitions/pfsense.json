@@ -1,0 +1,14 @@
+{
+  "id": "pfsense",
+  "name": "pfSense Firewall",
+  "description": "pfSense / FreeBSD perimeter firewall, managed over SSH or the web UI.",
+  "channel": "ssh",
+  "icon": "firewall",
+  "match": {
+    "anyPorts": [443, 80, 22],
+    "osIncludes": ["freebsd"],
+    "bannerIncludes": ["pfsense", "freebsd"],
+    "weight": 3
+  },
+  "defaultModuleIds": ["ssh-hardening"]
+}

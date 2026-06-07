@@ -1,0 +1,44 @@
+{
+  "id": "ssh-hardening",
+  "name": "SSH Hardening",
+  "description": "Installs an authorized public key, disables password authentication, restricts root login, and optionally changes the SSH port. Validates the config with `sshd -t` before reloading so you can't lock yourself out.",
+  "version": "1.0.0",
+  "category": "Hardening",
+  "channel": "ssh",
+  "appliesTo": ["linux-server", "mail-server", "pfsense"],
+  "params": [
+    {
+      "name": "publicKey",
+      "label": "Authorized public key",
+      "type": "text",
+      "required": false,
+      "help": "OpenSSH public key to append to the target user's authorized_keys (e.g. 'ssh-ed25519 AAAA...'). Leave blank to skip."
+    },
+    {
+      "name": "disablePasswordAuth",
+      "label": "Disable password authentication",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "name": "permitRootLogin",
+      "label": "PermitRootLogin value",
+      "type": "string",
+      "default": "prohibit-password",
+      "help": "One of: yes | no | prohibit-password"
+    },
+    {
+      "name": "sshPort",
+      "label": "SSH port (optional)",
+      "type": "number",
+      "required": false,
+      "help": "Change the SSH listening port. Leave blank to keep the current port."
+    },
+    {
+      "name": "useSudo",
+      "label": "Use sudo for privileged steps",
+      "type": "boolean",
+      "default": true
+    }
+  ]
+}

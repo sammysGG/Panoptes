@@ -1,0 +1,24 @@
+{
+  "id": "rdp-hardening",
+  "name": "RDP / Windows Hardening",
+  "description": "Enforces NLA, restricts RDP to the Remote Desktop Users group, enables the Windows firewall RDP rule scoping, and sets an account lockout policy. Requires WinRM remoting, which is on the roadmap — this module is currently a planning placeholder.",
+  "version": "0.1.0",
+  "category": "Hardening",
+  "channel": "winrm",
+  "experimental": true,
+  "appliesTo": ["windows-dc", "windows-workstation"],
+  "params": [
+    {
+      "name": "requireNla",
+      "label": "Require Network Level Authentication",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "name": "lockoutThreshold",
+      "label": "Account lockout threshold",
+      "type": "number",
+      "default": 5
+    }
+  ]
+}

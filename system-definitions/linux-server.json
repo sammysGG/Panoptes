@@ -1,0 +1,13 @@
+{
+  "id": "linux-server",
+  "name": "Linux Server",
+  "description": "Generic Linux host reachable over SSH.",
+  "channel": "ssh",
+  "icon": "linux",
+  "match": {
+    "anyPorts": [22],
+    "osIncludes": ["linux", "ubuntu", "debian", "centos", "red hat"],
+    "weight": 1
+  },
+  "defaultModuleIds": ["ssh-hardening", "fail2ban-install"]
+}

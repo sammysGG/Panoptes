@@ -1,0 +1,12 @@
+{
+  "id": "mail-server",
+  "name": "Mail Server",
+  "description": "SMTP/IMAP/POP3 mail host (Postfix, Dovecot, Exchange edge, etc.).",
+  "channel": "ssh",
+  "icon": "mail",
+  "match": {
+    "anyPorts": [25, 110, 143, 465, 587, 993, 995],
+    "weight": 2
+  },
+  "defaultModuleIds": ["ssh-hardening", "fail2ban-install"]
+}

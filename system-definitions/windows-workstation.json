@@ -1,0 +1,13 @@
+{
+  "id": "windows-workstation",
+  "name": "Windows Workstation",
+  "description": "Domain-joined or standalone Windows client (RDP/SMB).",
+  "channel": "winrm",
+  "icon": "windows",
+  "match": {
+    "anyPorts": [3389, 445, 139, 135],
+    "osIncludes": ["windows"],
+    "weight": 2
+  },
+  "defaultModuleIds": ["rdp-hardening"]
+}
