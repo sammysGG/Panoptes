@@ -38,24 +38,90 @@ else
   run() { sudo "$@"; }
 fi
 
-# ---- ensure Docker + Compose ------------------------------------------------
-if ! command -v docker >/dev/null 2>&1; then
+# ---- detect package manager -------------------------------------------------
+if command -v apt-get >/dev/null 2>&1; then PM=apt
+elif command -v dnf >/dev/null 2>&1; then PM=dnf
+elif command -v yum >/dev/null 2>&1; then PM=yum
+else PM=none; fi
+
+is_kali() { grep -qi 'kali' /etc/os-release 2>/dev/null; }
+
+# Kali rotated its repo signing key (NO_PUBKEY ED65462EC8D5E4C5); without the
+# refreshed keyring apt can't verify the index and package installs fail.
+fix_kali_keyring() {
+  is_kali || return 0
+  info "Refreshing Kali archive keyring (fixes NO_PUBKEY signature errors)"
+  if curl -fsSL https://archive.kali.org/archive-keyring.gpg -o /tmp/kali-keyring.gpg; then
+    run install -m 0644 /tmp/kali-keyring.gpg /usr/share/keyrings/kali-archive-keyring.gpg \
+      || warn "could not install refreshed Kali keyring — continuing"
+  else
+    warn "could not download the Kali keyring — continuing with the existing one"
+  fi
+}
+
+# The Docker convenience script (get.docker.com) does NOT work on Kali: it maps
+# Kali's codename to a download.docker.com repo that doesn't exist. Install the
+# engine from the distro's own repo instead (docker.io on Debian/Kali/Ubuntu).
+install_docker_engine() {
   bold "==> Installing Docker Engine"
-  # Official convenience script; works across Debian/Ubuntu/Kali/RHEL families.
-  curl -fsSL https://get.docker.com -o /tmp/get-docker.sh || die "failed to fetch Docker install script"
-  run sh /tmp/get-docker.sh || die "Docker installation failed"
-  run systemctl enable --now docker 2>/dev/null || true
-else
+  case "$PM" in
+    apt)
+      # A half-run convenience script may have left a broken docker.list that
+      # makes every apt update fail — remove it before we try again.
+      if [ -f /etc/apt/sources.list.d/docker.list ] && \
+         grep -q 'download.docker.com' /etc/apt/sources.list.d/docker.list 2>/dev/null; then
+        warn "Removing broken /etc/apt/sources.list.d/docker.list left by get.docker.com"
+        run rm -f /etc/apt/sources.list.d/docker.list
+      fi
+      fix_kali_keyring
+      run apt-get update -y || warn "apt-get update reported issues — continuing with cached lists"
+      run env DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io \
+        || die "failed to install docker.io from the distro repository"
+      ;;
+    dnf) run dnf install -y docker || die "failed to install docker via dnf" ;;
+    yum) run yum install -y docker || die "failed to install docker via yum" ;;
+    *)   die "no supported package manager (apt/dnf/yum) to install Docker — install Docker manually and re-run" ;;
+  esac
+  run systemctl enable --now docker 2>/dev/null || run service docker start 2>/dev/null || true
+}
+
+# Compose v2 plugin as a standalone binary from GitHub — avoids apt entirely
+# (Debian/Kali only ship the deprecated v1 docker-compose, if anything).
+install_compose_plugin() {
+  info "Installing Docker Compose v2 plugin"
+  local arch dest
+  case "$(uname -m)" in
+    x86_64|amd64) arch=x86_64 ;;
+    aarch64|arm64) arch=aarch64 ;;
+    armv7l) arch=armv7 ;;
+    *) arch="$(uname -m)" ;;
+  esac
+  dest=/usr/local/lib/docker/cli-plugins
+  run mkdir -p "$dest"
+  run curl -fsSL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${arch}" \
+    -o "$dest/docker-compose" || die "failed to download the Docker Compose plugin"
+  run chmod +x "$dest/docker-compose"
+}
+
+# ---- ensure Docker + Compose ------------------------------------------------
+if command -v docker >/dev/null 2>&1; then
   info "Docker already installed ($(docker --version))"
+else
+  install_docker_engine
 fi
 
-# Compose plugin (v2) check; fall back to legacy docker-compose if present.
+# Resolve a working Compose command; install the v2 plugin if neither is present.
 if docker compose version >/dev/null 2>&1; then
   COMPOSE=(docker compose)
 elif command -v docker-compose >/dev/null 2>&1; then
   COMPOSE=(docker-compose)
 else
-  die "Docker Compose not found. Install the docker-compose-plugin and re-run."
+  install_compose_plugin
+  if docker compose version >/dev/null 2>&1; then
+    COMPOSE=(docker compose)
+  else
+    die "Docker Compose is still unavailable after install — install it manually and re-run."
+  fi
 fi
 
 # ---- fetch the source -------------------------------------------------------
