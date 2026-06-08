@@ -27,6 +27,10 @@ export interface MatchRules {
   osIncludes?: string[];
   // Service banner / product substring match, e.g. "pfsense", "openssh".
   bannerIncludes?: string[];
+  // When true, the definition only matches if at least one osIncludes or
+  // bannerIncludes term is found. Open ports alone are NOT enough. Use this for
+  // specialised types (e.g. pfSense) so generic web/SSH hosts don't match them.
+  requireSignal?: boolean;
   // Higher weight wins when multiple definitions match.
   weight?: number;
 }

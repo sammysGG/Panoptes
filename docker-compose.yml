@@ -1,0 +1,52 @@
+# Panoptes — blue-team scanning & hardening console.
+#
+#   cp .env.example .env   # then edit secrets
+#   docker compose up -d --build
+#
+# UI:  http://<host>:${FRONTEND_PORT:-3000}
+# API: http://<host>:${PORT:-4000}/api/health
+#
+# The browser talks to the backend directly on ${PORT}, so both ports are
+# published on the host. Run on a trusted lab network only.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: panoptes-backend
+    env_file:
+      - .env
+    environment:
+      PORT: 4000
+    ports:
+      - "${PORT:-4000}:4000"
+    # Raw-socket capabilities so nmap SYN/OS scans work (TCP-sweep fallback
+    # works without them). Drop these if your host policy forbids them.
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    volumes:
+      - panoptes-data:/app/backend/data
+      - panoptes-modules:/app/modules
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        # Baked into the client bundle; must match the published backend port.
+        NEXT_PUBLIC_API_PORT: "${NEXT_PUBLIC_API_PORT:-4000}"
+    image: panoptes-frontend
+    env_file:
+      - .env
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  panoptes-data:
+  panoptes-modules:

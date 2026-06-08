@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { startScan, EnrichedHost } from '../scanner';
+import { beginScan, executeScan, EnrichedHost } from '../scanner';
 import { getDefinition } from '../definitions';
 import { emitScan } from '../events';
 
@@ -8,16 +8,21 @@ export const scansRouter = Router();
 
 // Kick off a scan. Returns immediately with the scan id; progress streams over
 // Socket.IO (room "scan:<id>") and the final result is fetched via GET below.
-scansRouter.post('/', async (req, res) => {
+scansRouter.post('/', (req, res) => {
   const { cidr, forceFallback } = req.body || {};
   if (!cidr || typeof cidr !== 'string') {
     res.status(400).json({ error: 'cidr is required (e.g. 10.0.0.0/24)' });
     return;
   }
   try {
-    // Validate the target eagerly so obvious mistakes fail fast.
-    const { scanId } = await startScan(cidr, emitScan, { forceFallback: !!forceFallback });
+    const { scanId, method } = beginScan(cidr, { forceFallback: !!forceFallback });
     const scan = db.prepare('SELECT * FROM scans WHERE id = ?').get(scanId);
+    // Run the scan in the background and stream progress over Socket.IO. The
+    // client subscribes to room "scan:<id>" and renders live updates.
+    const { useNmap } = { useNmap: method === 'nmap' };
+    void executeScan(scanId, cidr, useNmap, emitScan).catch(() => {
+      /* failure already persisted + emitted inside executeScan */
+    });
     res.json(scan);
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : String(e) });

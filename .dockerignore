@@ -1,0 +1,14 @@
+# Keep build context small and reproducible.
+**/node_modules
+backend/dist
+frontend/.next
+frontend/out
+backend/data
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.env
+.env.local
+.git
+*.log
+.DS_Store

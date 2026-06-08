@@ -29,19 +29,25 @@ function scoreDefinition(host: ScanHost, def: SystemDefinition): number {
   }
 
   const os = (host.osGuess || '').toLowerCase();
+  let osHit = false;
   if (m.osIncludes && m.osIncludes.length) {
-    const osHit = m.osIncludes.some((s) => os.includes(s.toLowerCase()));
-    if (!osHit && !openPorts.size) return 0;
+    osHit = m.osIncludes.some((s) => os.includes(s.toLowerCase()));
     if (osHit) score += 3;
   }
 
+  let bannerHit = false;
   if (m.bannerIncludes && m.bannerIncludes.length) {
     const banners = host.ports
       .map((p) => `${p.service || ''} ${p.product || ''} ${p.version || ''}`.toLowerCase())
       .join(' ');
-    const bHit = m.bannerIncludes.some((s) => banners.includes(s.toLowerCase()));
-    if (bHit) score += 4;
+    bannerHit = m.bannerIncludes.some((s) => banners.includes(s.toLowerCase()));
+    if (bannerHit) score += 4;
   }
+
+  // Specialised definitions (e.g. pfSense) must be confirmed by an OS or banner
+  // signal — matching open ports alone is not enough to claim the type. This
+  // prevents generic Linux web/SSH routers from being labelled pfSense.
+  if (m.requireSignal && !osHit && !bannerHit) return 0;
 
   if (score > 0) score += m.weight || 0;
   return score;

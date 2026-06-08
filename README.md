@@ -31,27 +31,55 @@ The backend exposes a JWT-protected REST API plus a Socket.IO channel for live s
 and task output. Target credentials are encrypted with AES-256-GCM (key derived from
 `PANOPTES_SECRET_KEY`) and are never returned to the browser.
 
-## Deploy (one machine, from GitHub)
+## Deploy with Docker (recommended)
 
-On a fresh Linux host (Debian/Ubuntu or RHEL family), as root or with sudo:
+On a Linux host with internet access, as root or with sudo — one command clones the repo,
+installs Docker if it's missing, generates a random secret + `.env`, builds both images and
+brings the stack up with Compose:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sammysGG/Panoptes/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/sammysGG/Panoptes/main/docker-deploy.sh | sudo bash
 ```
 
-The installer provisions Node 20, nmap and build tools, clones the repo to `/opt/panoptes`,
-builds both apps, generates a random secret + `.env`, and starts `panoptes-backend` and
-`panoptes-frontend` as systemd services. When it finishes it prints the UI URL and login.
+When it finishes it prints the UI URL and login. Browse to `http://<server-ip>:3000` and sign
+in (default `admin` / `panoptes` — change `PANOPTES_ADMIN_PASS` in `/opt/panoptes/.env`).
 
-Then browse to `http://<server-ip>:3000` and sign in (default `admin` / `panoptes` — change
-`PANOPTES_ADMIN_PASS` in `/opt/panoptes/.env`).
+Re-running the script updates an existing deployment (pulls latest, rebuilds, restarts).
+
+### Already have Docker + the repo?
+
+```bash
+cp .env.example .env        # then set PANOPTES_SECRET_KEY and the admin creds
+docker compose up -d --build
+```
+
+| | |
+| --- | --- |
+| Logs | `docker compose logs -f` |
+| Restart | `docker compose restart` |
+| Stop | `docker compose down` (add `-v` to wipe the DB + uploaded modules) |
+
+The backend container ships nmap and requests `NET_RAW`/`NET_ADMIN` so SYN/OS scans work; the
+SQLite database (`panoptes-data`) and uploaded modules (`panoptes-modules`) live in named
+volumes and survive rebuilds. Built-in modules are seeded into the modules volume on first
+boot. The browser talks to the backend directly, so both `${FRONTEND_PORT}` (UI) and `${PORT}`
+(API) are published on the host.
 
 ### Useful overrides
 
 ```bash
-PANOPTES_DIR=/srv/panoptes PANOPTES_ADMIN_PASS='s3cret' FRONTEND_PORT=8080 \
-  sudo -E bash install.sh
-NO_SERVICE=1 sudo -E bash install.sh   # build only, start manually
+PANOPTES_DIR=/srv/panoptes PANOPTES_ADMIN_PASS='s3cret' FRONTEND_PORT=8080 PORT=4000 \
+  sudo -E bash docker-deploy.sh
+```
+
+## Deploy without Docker (systemd)
+
+Prefer a bare-metal install? `install.sh` provisions Node 20, nmap and build tools, builds both
+apps and runs them as `panoptes-backend` / `panoptes-frontend` systemd services:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/sammysGG/Panoptes/main/install.sh | sudo bash
+# NO_SERVICE=1 sudo -E bash install.sh   # build only, start manually
 ```
 
 ## Run locally (dev)

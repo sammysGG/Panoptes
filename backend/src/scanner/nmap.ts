@@ -64,12 +64,21 @@ export function runNmap(target: string, opts: NmapOptions = {}): Promise<ScanHos
     const proc = spawn('nmap', [...args, '-oX', '-', target]);
     let xml = '';
     let stderr = '';
+    let lineBuf = '';
     proc.stdout.on('data', (d) => {
       xml += d.toString();
     });
     proc.stderr.on('data', (d) => {
-      stderr += d.toString();
-      opts.onProgress?.(d.toString());
+      const chunk = d.toString();
+      stderr += chunk;
+      // Buffer and split into whole lines so the progress/host regexes in the
+      // scanner see complete messages rather than arbitrary stream chunks.
+      lineBuf += chunk;
+      const lines = lineBuf.split(/\r?\n/);
+      lineBuf = lines.pop() || '';
+      for (const line of lines) {
+        if (line.trim()) opts.onProgress?.(line);
+      }
     });
     proc.on('error', reject);
     proc.on('close', (code) => {

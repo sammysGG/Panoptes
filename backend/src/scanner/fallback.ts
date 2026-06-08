@@ -51,6 +51,8 @@ export interface SweepOptions {
   timeoutMs?: number;
   concurrency?: number;
   onProgress?: (done: number, total: number) => void;
+  // Called as soon as a live host is found, for live streaming to the UI.
+  onHost?: (host: ScanHost) => void;
 }
 
 export async function tcpSweep(target: string, opts: SweepOptions = {}): Promise<ScanHost[]> {
@@ -66,7 +68,10 @@ export async function tcpSweep(target: string, opts: SweepOptions = {}): Promise
     while (index < hosts.length) {
       const ip = hosts[index++];
       const result = await scanHost(ip, ports, timeout);
-      if (result) found.push(result);
+      if (result) {
+        found.push(result);
+        opts.onHost?.(result);
+      }
       completed++;
       opts.onProgress?.(completed, hosts.length);
     }
