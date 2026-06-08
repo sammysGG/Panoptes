@@ -161,6 +161,19 @@ else
   info "Keeping existing $ENV_FILE"
 fi
 
+# ---- stop a conflicting systemd install -------------------------------------
+# A previous bare-metal install.sh leaves panoptes-backend/-frontend systemd
+# services bound to the same ports, which would block the containers. Stop and
+# disable them so this Docker deployment can take over.
+if command -v systemctl >/dev/null 2>&1; then
+  for svc in panoptes-backend panoptes-frontend; do
+    if systemctl list-unit-files 2>/dev/null | grep -q "^${svc}\.service"; then
+      warn "Stopping conflicting systemd service ${svc} (migrating to Docker)"
+      run systemctl disable --now "${svc}.service" 2>/dev/null || true
+    fi
+  done
+fi
+
 # ---- build + start ----------------------------------------------------------
 bold "==> Building and starting the stack (this can take a few minutes)"
 ( cd "$DIR" && run "${COMPOSE[@]}" up -d --build )
